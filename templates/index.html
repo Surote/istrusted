@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Trust Checker</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 960px; margin: 0 auto; padding: 20px; background-color: #f5f5f7; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #1d1d1f; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; }
+        textarea { width: 100%; height: 150px; padding: 10px; border: 1px solid #d2d2d7; border-radius: 8px; font-family: monospace; font-size: 12px; box-sizing: border-box; resize: vertical; }
+        button { background-color: #0071e3; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; transition: background-color 0.2s; }
+        button:hover { background-color: #0077ed; }
+        
+        .result-section { margin-top: 30px; padding: 20px; border-radius: 8px; }
+        .success { background-color: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; }
+        .failure { background-color: #ffebee; border: 1px solid #ffcdd2; color: #c62828; }
+        .error { background-color: #fff3e0; border: 1px solid #ffe0b2; color: #ef6c00; }
+        
+        .details-grid { margin-top: 20px; }
+        .cert-details { background: #fbfbfd; padding: 15px; border-radius: 8px; border: 1px solid #e5e5e5; margin-bottom: 20px; }
+        .cert-details h3 { margin-top: 0; border-bottom: 1px solid #e5e5e5; padding-bottom: 10px; }
+        .detail-row { margin-bottom: 8px; font-size: 14px; word-break: break-all; }
+        .detail-label { font-weight: bold; color: #666; font-size: 12px; display: block; }
+        .tag { display: inline-block; background: #e5e5ea; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-right: 5px; margin-bottom: 3px; }
+        
+        .chain-connector { text-align: center; font-size: 24px; color: #2e7d32; margin: -10px 0 10px 0; }
+
+        @media (max-width: 768px) {
+            .details-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Is Trusted?</h1>
+        <p style="text-align: center; color: #666;">Paste PEM formatted certificates below to verify trust chain.</p>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="user_cert">User Certificate (PEM)</label>
+                <textarea id="user_cert" name="user_cert" placeholder="-----BEGIN CERTIFICATE-----...-----END CERTIFICATE-----">{{ user_cert_input }}</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="ca_cert">CA / Intermediate CA Certificate Chain (PEM)</label>
+                <textarea id="ca_cert" name="ca_cert" placeholder="-----BEGIN CERTIFICATE-----...-----END CERTIFICATE-----&#10;-----BEGIN CERTIFICATE-----...-----END CERTIFICATE-----">{{ ca_cert_input }}</textarea>
+            </div>
+            
+            <button type="submit">Verify Trust</button>
+        </form>
+
+        {% if result %}
+        <div class="result-section {{ result.status }}">
+            <h2 style="margin-top: 0;">{{ "✅ Trusted" if result.status == 'success' else "❌ Not Trusted" if result.status == 'failure' else "⚠️ Error" }}</h2>
+            <p>{{ result.message }}</p>
+        </div>
+        {% endif %}
+
+        {% macro render_cert(cert, title, color='#999') %}
+        <div class="cert-details" style="border-left: 5px solid {{ color }};">
+            <h3>{{ title }}</h3>
+            <div class="detail-row"><span class="detail-label">Subject</span> {{ cert.subject }}</div>
+            <div class="detail-row"><span class="detail-label">Issuer</span> {{ cert.issuer }}</div>
+            <div class="detail-row"><span class="detail-label">Version</span> {{ cert.version }}</div>
+            <div class="detail-row"><span class="detail-label">Signature Algorithm</span> {{ cert.signature_algorithm }}</div>
+            <div class="detail-row"><span class="detail-label">Public Key</span> {{ cert.public_key.type }} ({{ cert.public_key.size }} bit)</div>
+            <div class="detail-row"><span class="detail-label">Serial Number</span> {{ cert.serial_number }}</div>
+            <div class="detail-row"><span class="detail-label">Valid From</span> {{ cert.not_valid_before }}</div>
+            <div class="detail-row"><span class="detail-label">Valid Until</span> {{ cert.not_valid_after }}</div>
+            <div class="detail-row"><span class="detail-label">Fingerprint (SHA256)</span> {{ cert.fingerprint_sha256 }}</div>
+            
+            {% if cert.extensions.san %}
+            <div class="detail-row">
+                <span class="detail-label">Subject Alt Names</span>
+                {% for san in cert.extensions.san %} <span class="tag">{{ san }}</span> {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if cert.extensions.basic_constraints %}
+            <div class="detail-row">
+                <span class="detail-label">Basic Constraints</span>
+                Is CA: <b>{{ cert.extensions.basic_constraints.ca }}</b>
+                {% if cert.extensions.basic_constraints.path_length is not none %} | Path Length: {{ cert.extensions.basic_constraints.path_length }}{% endif %}
+            </div>
+            {% endif %}
+
+            {% if cert.extensions.key_usage %}
+            <div class="detail-row">
+                <span class="detail-label">Key Usage</span>
+                {% for usage in cert.extensions.key_usage %} <span class="tag">{{ usage }}</span> {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endmacro %}
+
+        {% if user_cert_details %}
+        <div class="details-grid">
+            {{ render_cert(user_cert_details, "User Certificate", "#0071e3") }}
+
+            {% if verification_chain_details %}
+                {% for cert in verification_chain_details %}
+                    <div class="chain-connector">⬇️ Verified By</div>
+                    {{ render_cert(cert, "CA Certificate (Chain Level " ~ loop.index ~ ")", "#2e7d32") }}
+                {% endfor %}
+            {% elif ca_certs_details %}
+                <h2 style="text-align: center; margin-top: 40px; color: #666;">Provided CA Certificates (Not in trusted chain)</h2>
+                {% for cert in ca_certs_details %}
+                    {{ render_cert(cert, "CA Certificate #" ~ loop.index) }}
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
