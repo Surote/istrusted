@@ -1,0 +1,109 @@
+# Trusted Certificate Checker
+
+A simple, single-page web application built with Python and Flask to verify if a User Certificate is trusted by a provided CA (Certificate Authority) or Intermediate CA certificate chain.
+
+## Features
+
+*   **Trust Verification**: Verifies the digital signature of a User Certificate against a provided CA/Intermediate CA.
+*   **Chain Verification**: Supports verifying a chain of certificates (Leaf -> Intermediate -> Root).
+*   **Certificate Details**: detailed view of certificate attributes including:
+    *   Subject & Issuer
+    *   Serial Number
+    *   Validity Period (Not Before / Not After)
+    *   SHA256 Fingerprint
+    *   Public Key Type & Size
+    *   Signature Algorithm
+    *   Extensions (SAN, Key Usage, Basic Constraints)
+*   **Visual Feedback**: Clear visual indicators for trusted vs. untrusted certificates.
+*   **Containerized**: Docker/Podman support for easy deployment.
+*   **Cloud Ready**: Configured for Google Cloud Run / App Engine.
+
+## Prerequisites
+
+*   Python 3.9+
+*   `pip` (Python package manager)
+
+## Local Development
+
+1.  **Clone the repository** (if applicable) or navigate to the project directory.
+
+2.  **Create a Virtual Environment**:
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+
+3.  **Install Dependencies**:
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4.  **Run the Application**:
+    ```bash
+    python app.py
+    ```
+
+5.  **Access the App**:
+    Open your browser and navigate to `http://127.0.0.1:5001`.
+
+## Docker / Podman
+
+You can build and run the application as a container.
+
+### Build the Image
+
+**Using Docker:**
+```bash
+docker build -t trusted-cert-checker .
+```
+
+**Using Podman (for x86/amd64):**
+```bash
+podman build --platform linux/amd64 -t trusted-cert-checker .
+```
+
+### Run the Container
+
+```bash
+# Run on port 5000
+docker run -e PORT=5000 -p 5000:5000 trusted-cert-checker
+```
+
+Access at `http://localhost:5000`.
+
+## Deployment
+
+### Google Cloud Run
+
+You can deploy directly from the source code using the Google Cloud CLI.
+
+1.  **Install & Init gcloud**:
+    ```bash
+    gcloud init
+    ```
+
+2.  **Deploy**:
+    ```bash
+    gcloud run deploy trusted-cert-checker \
+      --source . \
+      --region asia-southeast1 \
+      --allow-unauthenticated
+    ```
+
+3.  **Access**:
+    The command will output a Service URL (e.g., `https://trusted-cert-checker-xyz.run.app`) which you can use to access the live application.
+
+## Technologies
+
+*   **Backend**: Python, Flask
+*   **Cryptography**: `cryptography` library (pyca/cryptography)
+*   **Server**: Gunicorn (for production)
+*   **Frontend**: HTML, CSS, Jinja2 Templates
+
+## Project Structure
+
+*   `app.py`: Main Flask application logic.
+*   `templates/index.html`: Frontend HTML template.
+*   `Dockerfile`: Container configuration.
+*   `requirements.txt`: Python dependencies.
+*   `app.yaml`: Google App Engine configuration (optional).
