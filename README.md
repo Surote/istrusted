@@ -91,7 +91,7 @@ You can deploy directly from the source code using the Google Cloud CLI.
     ```
 
 3.  **Access**:
-    The command will output a Service URL (e.g., `https://trusted-cert-checker-xyz.run.app`) which you can use to access the live application.
+    The command will output a Service URL (e.g., `https://istrusted.swongpai.xyz/`) which you can use to access the live application.
 
 ## Technologies
 
